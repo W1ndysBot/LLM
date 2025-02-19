@@ -1,4 +1,4 @@
-# script/example/main.py
+# script/LLM/main.py
 
 import logging
 import os
@@ -14,24 +14,24 @@ sys.path.append(
 from app.config import *
 from app.api import *
 from app.switch import load_switch, save_switch
+from app.scripts.LLM.LLM import send_dify_request, handle_dify_response
 
-
-# 数据存储路径，实际开发时，请将Example替换为具体的数据存放路径
+# 数据存储路径，实际开发时，请将LLM替换为具体的数据存放路径
 DATA_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
     "data",
-    "Example",
+    "LLM",
 )
 
 
 # 查看功能开关状态
 def load_function_status(group_id):
-    return load_switch(group_id, "Example")
+    return load_switch(group_id, "LLM")
 
 
 # 保存功能开关状态
 def save_function_status(group_id, status):
-    save_switch(group_id, "Example", status)
+    save_switch(group_id, "LLM", status)
 
 
 # 处理元事件，用于启动时确保数据目录存在
@@ -46,7 +46,7 @@ async def toggle_function_status(websocket, group_id, message_id, authorized):
         await send_group_msg(
             websocket,
             group_id,
-            f"[CQ:reply,id={message_id}]❌❌❌你没有权限对Example功能进行操作,请联系管理员。",
+            f"[CQ:reply,id={message_id}]❌❌❌你没有权限对LLM功能进行操作,请联系管理员。",
         )
         return
 
@@ -55,12 +55,12 @@ async def toggle_function_status(websocket, group_id, message_id, authorized):
         await send_group_msg(
             websocket,
             group_id,
-            f"[CQ:reply,id={message_id}]🚫🚫🚫Example功能已关闭",
+            f"[CQ:reply,id={message_id}]🚫🚫🚫LLM功能已关闭",
         )
     else:
         save_function_status(group_id, True)
         await send_group_msg(
-            websocket, group_id, f"[CQ:reply,id={message_id}]✅✅✅Example功能已开启"
+            websocket, group_id, f"[CQ:reply,id={message_id}]✅✅✅LLM功能已开启"
         )
 
 
@@ -74,22 +74,46 @@ async def handle_group_message(websocket, msg):
         group_id = str(msg.get("group_id"))
         raw_message = str(msg.get("raw_message"))
         message_id = str(msg.get("message_id"))
+        self_id = str(msg.get("self_id"))
         authorized = user_id in owner_id
 
         # 处理开关命令
-        if raw_message == "example":
+        if raw_message == "LLM":
             await toggle_function_status(websocket, group_id, message_id, authorized)
             return
         # 检查功能是否开启
         if load_function_status(group_id):
             # 其他群消息处理逻辑
-            pass
+            if raw_message.startswith("卷卷") or f"[CQ:at,qq={self_id}]" in raw_message:
+                await send_group_msg(
+                    websocket,
+                    group_id,
+                    [
+                        {"type": "reply", "data": {"id": message_id}},
+                        {"type": "text", "data": {"text": "💬💬💬正在思考中..."}},
+                    ],
+                )
+                response = await send_dify_request(user_id, raw_message)
+                response = json.loads(response)
+                answer, total_tokens, total_price, currency = handle_dify_response(
+                    response
+                )
+                message = [
+                    {"type": "reply", "data": {"id": message_id}},
+                    {
+                        "type": "text",
+                        "data": {
+                            "text": f"{answer}\n\n{total_tokens} tokens\n{total_price} {currency}"
+                        },
+                    },
+                ]
+                await send_group_msg(websocket, group_id, message)
     except Exception as e:
-        logging.error(f"处理Example群消息失败: {e}")
+        logging.error(f"处理LLM群消息失败: {e}")
         await send_group_msg(
             websocket,
             group_id,
-            "处理Example群消息失败，错误信息：" + str(e),
+            "处理LLM群消息失败，错误信息：" + str(e),
         )
         return
 
@@ -104,11 +128,11 @@ async def handle_private_message(websocket, msg):
         # 私聊消息处理逻辑
         pass
     except Exception as e:
-        logging.error(f"处理Example私聊消息失败: {e}")
+        logging.error(f"处理LLM私聊消息失败: {e}")
         await send_private_msg(
             websocket,
             msg.get("user_id"),
-            "处理Example私聊消息失败，错误信息：" + str(e),
+            "处理LLM私聊消息失败，错误信息：" + str(e),
         )
         return
 
@@ -126,11 +150,11 @@ async def handle_group_notice(websocket, msg):
         message_id = str(msg.get("message_id"))
 
     except Exception as e:
-        logging.error(f"处理Example群通知失败: {e}")
+        logging.error(f"处理LLM群通知失败: {e}")
         await send_group_msg(
             websocket,
             group_id,
-            "处理Example群通知失败，错误信息：" + str(e),
+            "处理LLM群通知失败，错误信息：" + str(e),
         )
         return
 
@@ -181,7 +205,7 @@ async def handle_events(websocket, msg):
             "meta_event": "元事件",
         }.get(post_type, "未知")
 
-        logging.error(f"处理Example{error_type}事件失败: {e}")
+        logging.error(f"处理LLM{error_type}事件失败: {e}")
 
         # 发送错误提示
         if post_type == "message":
@@ -190,11 +214,11 @@ async def handle_events(websocket, msg):
                 await send_group_msg(
                     websocket,
                     msg.get("group_id"),
-                    f"处理Example{error_type}事件失败，错误信息：{str(e)}",
+                    f"处理LLM{error_type}事件失败，错误信息：{str(e)}",
                 )
             elif message_type == "private":
                 await send_private_msg(
                     websocket,
                     msg.get("user_id"),
-                    f"处理Example{error_type}事件失败，错误信息：{str(e)}",
+                    f"处理LLM{error_type}事件失败，错误信息：{str(e)}",
                 )
