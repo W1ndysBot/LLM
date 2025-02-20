@@ -3,8 +3,8 @@
 import logging
 import os
 import sys
-import re
 import json
+import asyncio
 
 # 添加项目根目录到sys.path
 sys.path.append(
@@ -22,6 +22,9 @@ DATA_DIR = os.path.join(
     "data",
     "LLM",
 )
+
+# 临时消息id列表
+temp_message_ids = []
 
 
 # 查看功能开关状态
@@ -108,6 +111,11 @@ async def handle_group_message(websocket, msg):
                     },
                 ]
                 await send_group_msg(websocket, group_id, message)
+                await asyncio.sleep(0.1)  # 等待0.1秒，让临时消息id存储生效
+                if temp_message_ids:
+                    for msg_id in temp_message_ids:
+                        await delete_msg(websocket, msg_id)
+                    temp_message_ids.clear()
     except Exception as e:
         logging.error(f"处理LLM群消息失败: {e}")
         await send_group_msg(
@@ -163,9 +171,9 @@ async def handle_group_notice(websocket, msg):
 async def handle_response(websocket, msg):
     """处理回调事件"""
     echo = msg.get("echo")
-    if echo and echo.startswith("xxx"):
-        # 回调处理逻辑
-        pass
+    if echo and echo == "💬💬💬正在思考中...":
+        # 将message_id存储到临时消息id列表
+        temp_message_ids.append(msg.get("message_id"))
 
 
 # 统一事件处理入口
