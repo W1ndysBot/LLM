@@ -170,10 +170,17 @@ async def handle_group_notice(websocket, msg):
 # 回应事件处理函数
 async def handle_response(websocket, msg):
     """处理回调事件"""
-    echo = msg.get("echo")
-    if echo and echo == "💬💬💬正在思考中...":
-        # 将message_id存储到临时消息id列表
-        temp_message_ids.append(msg.get("message_id"))
+    try:
+        echo = msg.get("echo")
+        if echo and "💬💬💬正在思考中..." in echo:
+            # 将message_id存储到临时消息id列表
+            temp_message_ids.append(msg.get("data", {}).get("message_id"))
+            logging.info(
+                f"将message_id存储到临时消息id列表: {msg.get('data', {}).get('message_id')}"
+            )
+    except Exception as e:
+        logging.error(f"处理LLM回调事件失败: {e}")
+        return
 
 
 # 统一事件处理入口
